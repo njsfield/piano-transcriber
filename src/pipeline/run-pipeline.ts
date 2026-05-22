@@ -23,10 +23,22 @@ export interface PipelineConfig {
 }
 
 function parseOutput<T>(response: AgentResponse): T {
-  const last = [...response.messages].reverse().find(m => m.role === 'assistant');
-  if (!last) throw new Error('Agent produced no output');
-  const cleaned = last.content.replace(/^```(?:json)?\s*/m, '').replace(/\s*```$/m, '').trim();
-  return JSON.parse(cleaned) as T;
+  const strip = (s: string) => s.replace(/^```(?:json)?\s*/m, '').replace(/\s*```$/m, '').trim();
+
+  // Try the final assistant message first (used by reasoning agents like CleanupAgent)
+  const lastAssistant = [...response.messages].reverse().find(m => m.role === 'assistant');
+  if (lastAssistant?.content) {
+    try { return JSON.parse(strip(lastAssistant.content)) as T; } catch {}
+  }
+
+  // Fall back to the last tool message — used by passthrough agents (Transcription,
+  // Editor, Renderer) whose instructions say DONE instead of re-echoing large JSON.
+  const lastTool = [...response.messages].reverse().find(m => m.role === 'tool');
+  if (lastTool?.content) {
+    try { return JSON.parse(strip(lastTool.content)) as T; } catch {}
+  }
+
+  throw new Error('Agent produced no parseable JSON output');
 }
 
 export async function runPipeline(
