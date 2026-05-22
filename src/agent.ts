@@ -136,7 +136,9 @@ export class Agent extends BaseAgent {
       }
 
       for (const toolCall of assistantMessage.toolCalls) {
-        llmMessages.push(await this.runToolCall(toolCall));
+        const toolMsg = await this.runToolCall(toolCall);
+        llmMessages.push(toolMsg);
+        responses.push(toolMsg);
       }
     }
 
