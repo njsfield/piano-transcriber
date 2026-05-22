@@ -1,5 +1,6 @@
 // src/agents/renderer-agent.ts
 import { OpenAIAgent } from '../openai-agent';
+import { LoggingMiddleware } from '../middleware';
 import { RenderTool } from '../tools/render-tool';
 import type { MidiEvent } from '../pipeline/types';
 
@@ -13,5 +14,6 @@ export function createRendererAgent(notes: MidiEvent[], outputDir: string): Open
   return new OpenAIAgent('RendererAgent', INSTRUCTIONS, {
     model: 'gpt-4o-mini',
     tools: [new RenderTool(notes, outputDir)],
+    middleware: [new LoggingMiddleware()],
   });
 }

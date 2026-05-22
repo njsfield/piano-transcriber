@@ -1,5 +1,6 @@
 // src/agents/analysis-agent.ts
 import { OpenAIAgent } from '../openai-agent';
+import { LoggingMiddleware } from '../middleware';
 import { ExtractFeaturesTool } from '../tools/extract-features-tool';
 import { FlagSuspiciousTool } from '../tools/flag-suspicious-tool';
 import type { MidiEvent } from '../pipeline/types';
@@ -15,5 +16,6 @@ export function createAnalysisAgent(notes: MidiEvent[]): OpenAIAgent {
   return new OpenAIAgent('AnalysisAgent', INSTRUCTIONS, {
     model: 'gpt-4o-mini',
     tools: [new ExtractFeaturesTool(notes), new FlagSuspiciousTool(notes)],
+    middleware: [new LoggingMiddleware()],
   });
 }

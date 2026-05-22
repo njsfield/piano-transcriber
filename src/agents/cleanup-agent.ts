@@ -1,5 +1,6 @@
 // src/agents/cleanup-agent.ts
 import { OpenAIAgent } from '../openai-agent';
+import { LoggingMiddleware } from '../middleware';
 
 const INSTRUCTIONS = `You are a music cleanup agent for jazz piano transcriptions.
 You will receive MIDI events, a list of flagged issues, and optionally chord changes.
@@ -17,5 +18,6 @@ Return only the JSON object — no prose, no markdown code blocks.`;
 export function createCleanupAgent(): OpenAIAgent {
   return new OpenAIAgent('CleanupAgent', INSTRUCTIONS, {
     model: 'gpt-4o',
+    middleware: [new LoggingMiddleware()],
   });
 }
