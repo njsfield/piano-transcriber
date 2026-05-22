@@ -1,0 +1,4 @@
+basic-pitch
+fastapi
+uvicorn[standard]
+python-multipart
