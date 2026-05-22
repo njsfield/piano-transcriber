@@ -13,5 +13,6 @@ export function createRendererAgent(notes: MidiEvent[], outputDir: string): Open
     model: 'gpt-4o-mini',
     tools: [new RenderTool(notes, outputDir)],
     middleware: [new LoggingMiddleware()],
+    maxIterations: 2,
   });
 }

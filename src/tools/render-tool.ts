@@ -31,7 +31,16 @@ function spawnAndWait(cmd: string, args: string[]): Promise<void> {
       if (code === 0) resolve();
       else reject(new Error(`${cmd} exited ${code}: ${stderr.join('')}`));
     });
-    proc.on('error', reject);
+    proc.on('error', err => {
+      if ((err as NodeJS.ErrnoException).code === 'ENOENT') {
+        reject(new Error(
+          `MuseScore not found at "${cmd}". Install it (brew install musescore) ` +
+          `or set MSCORE_PATH to the correct binary path.`,
+        ));
+      } else {
+        reject(err);
+      }
+    });
   });
 }
 
