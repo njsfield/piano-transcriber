@@ -27,7 +27,7 @@ export class JobStore {
     const job = this.jobs.get(id);
     if (!job) return;
     job.events.push(event);
-    job.status = 'running';
+    if (job.status === 'pending') job.status = 'running';
     this.notify(id, event);
   }
 

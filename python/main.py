@@ -44,7 +44,6 @@ async def transcribe(audio: UploadFile = File(...)):
 
     try:
         from basic_pitch.inference import predict
-        from basic_pitch import ICASSP_2022_MODEL_PATH
 
         _model_output, _midi_data, note_events = predict(tmp_path)
 

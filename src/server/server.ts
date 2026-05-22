@@ -11,7 +11,11 @@ const PORT = parseInt(process.env['PORT'] ?? '3001', 10);
 const JOBS_DIR = path.resolve('tmp/jobs');
 
 const app = express();
-const upload = multer({ dest: 'tmp/uploads/' });
+const upload = multer({
+  dest: 'tmp/uploads/',
+  limits: { fileSize: 100 * 1024 * 1024 },
+  fileFilter: (_req, file, cb) => { cb(null, /wav|m4a|audio/.test(file.mimetype)); },
+});
 const store = new JobStore();
 
 app.use(express.json());

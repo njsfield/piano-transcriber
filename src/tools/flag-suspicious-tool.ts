@@ -41,7 +41,7 @@ function flagRhythmicOutliers(notes: MidiEvent[]): Issue[] {
       issues.push({
         noteId: sorted[i]!.id,
         type: 'rhythmic_outlier',
-        description: `Onset gap of ${Math.round(ioi)}ms is ${z.toFixed(1)} std devs from median`,
+        description: `Onset gap of ${Math.round(ioi)}ms is ${z.toFixed(1)} std devs from mean`,
         severity: z > 4 ? 'high' : 'medium',
       });
     }

@@ -1,5 +1,4 @@
 // src/pipeline/run-pipeline.ts
-import { join } from 'path';
 import { mkdir } from 'fs/promises';
 import type { AgentResponse } from '../types';
 import type {
@@ -84,7 +83,7 @@ export async function runPipeline(
 
   // Stage 5: Renderer
   go('renderer');
-  const outputDir = join(jobOutputDir);
+  const outputDir = jobOutputDir;
   const rendererAgent = createRendererAgent(editor.midi, outputDir);
   const rendererResponse = await rendererAgent.run(
     `Render the MIDI events to MusicXML and PDF. Use the render_midi tool and return the file paths as JSON.`,
@@ -92,6 +91,5 @@ export async function runPipeline(
   const renderer = parseOutput<RendererResult>(rendererResponse);
   done('renderer');
 
-  emit({ type: 'pipeline_complete', result: renderer });
   return renderer;
 }
