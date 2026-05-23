@@ -4,6 +4,7 @@ import express from "express";
 import multer from "multer";
 import { randomUUID } from "node:crypto";
 import path from "path";
+import { readFileSync } from "fs";
 import { JobStore } from "./job-store";
 import { runPipeline } from "../pipeline/run-pipeline";
 
@@ -36,7 +37,11 @@ const upload = multer({
   dest: "tmp/uploads/",
   limits: { fileSize: 100 * 1024 * 1024 },
   fileFilter: (_req, file, cb) => {
-    cb(null, /wav|m4a|audio/.test(file.mimetype));
+    if (file.fieldname === 'chordsXml') {
+      cb(null, true);
+    } else {
+      cb(null, /wav|m4a|audio/.test(file.mimetype));
+    }
   },
 });
 const store = new JobStore();
@@ -64,7 +69,13 @@ app.post("/api/jobs", upload.fields([{ name: "audio", maxCount: 1 }, { name: "ch
 
   let chordsXml: string | undefined;
   if (chordsFile) {
-    const rawXml = require("fs").readFileSync(chordsFile.path, "utf-8") as string;
+    let rawXml: string;
+    try {
+      rawXml = readFileSync(chordsFile.path, "utf-8");
+    } catch {
+      res.status(400).json({ error: "Failed to read chord chart file" });
+      return;
+    }
     if (!rawXml.includes("<harmony>")) {
       res.status(400).json({ error: "chordsXml file contains no chord symbols. Upload an iReal Pro MusicXML export." });
       return;
