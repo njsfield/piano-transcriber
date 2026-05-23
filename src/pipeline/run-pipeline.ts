@@ -10,12 +10,15 @@ import type {
   RendererResult,
   PipelineEvent,
   PipelineStage,
+  ChordEvent,
 } from './types';
 import { createTranscriptionAgent } from '../agents/transcription-agent';
 import { createAnalysisAgent } from '../agents/analysis-agent';
 import { createCleanupAgent } from '../agents/cleanup-agent';
 import { createEditorAgent } from '../agents/editor-agent';
 import { createRendererAgent } from '../agents/renderer-agent';
+import { parseChordsXml } from '../tools/parse-chords';
+import { injectHarmonies } from '../tools/inject-harmonies';
 
 export interface PipelineConfig {
   pythonServiceUrl: string;
@@ -35,6 +38,10 @@ function parseOutput<T>(response: AgentResponse): T {
   // Editor, Renderer) whose instructions say DONE instead of re-echoing large JSON.
   const lastTool = [...response.messages].reverse().find(m => m.role === 'tool');
   if (lastTool?.content) {
+    // Surface tool errors directly rather than masking them as a JSON parse failure.
+    if ('success' in lastTool && lastTool.success === false) {
+      throw new Error(lastTool.content);
+    }
     try { return JSON.parse(strip(lastTool.content)) as T; } catch {}
   }
 
@@ -48,6 +55,8 @@ export async function runPipeline(
 ): Promise<RendererResult> {
   const { pythonServiceUrl, jobOutputDir } = config;
   await mkdir(jobOutputDir, { recursive: true });
+
+  const chords: ChordEvent[] = input.chordsXml ? parseChordsXml(input.chordsXml) : [];
 
   const go = (stage: PipelineStage) => emit({ type: 'stage_start', stage });
   const done = (stage: PipelineStage) => emit({ type: 'stage_complete', stage });
@@ -64,8 +73,11 @@ export async function runPipeline(
   // Stage 2: Analysis
   go('analysis');
   const analysisAgent = createAnalysisAgent(transcription.midi);
+  const chordContext = chords.length > 0
+    ? `\nChord chart: ${chords.map(c => `bar ${c.measure} beat ${c.beat}: ${c.symbol}`).join(', ')}`
+    : '';
   const analysisResponse = await analysisAgent.run(
-    `Analyse the MIDI transcription. Use both the extract_features and flag_suspicious tools, then return the combined result as JSON.`,
+    `Analyse the MIDI transcription. Use both the extract_features and flag_suspicious tools, then return the combined result as JSON.${chordContext}`,
   );
   const analysis = parseOutput<AnalysisResult>(analysisResponse);
   done('analysis');
@@ -77,7 +89,9 @@ export async function runPipeline(
     `Review this jazz piano transcription for cleanup.`,
     `\nMIDI events (${transcription.midi.length} notes):\n${JSON.stringify(transcription.midi)}`,
     `\nDetected issues:\n${JSON.stringify(analysis.issues)}`,
-    input.chordChanges ? `\nChord changes:\n${input.chordChanges}` : '',
+    chords.length > 0
+      ? `\nChord chart: ${chords.map(c => `bar ${c.measure} beat ${c.beat}: ${c.symbol}`).join(', ')}`
+      : '',
     `\nReturn the operations JSON.`,
   ].join('');
   const cleanupResponse = await cleanupAgent.run(cleanupTask);
@@ -102,6 +116,10 @@ export async function runPipeline(
   );
   const renderer = parseOutput<RendererResult>(rendererResponse);
   done('renderer');
+
+  if (chords.length > 0) {
+    await injectHarmonies(renderer.musicxmlPath, chords, analysis.features.temposBpm);
+  }
 
   return renderer;
 }
