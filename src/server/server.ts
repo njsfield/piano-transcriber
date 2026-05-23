@@ -9,6 +9,17 @@ import { runPipeline } from "../pipeline/run-pipeline";
 
 config({ path: path.join(__dirname, "../../.env") });
 
+const C = {
+  reset: '\x1b[0m',
+  dim: '\x1b[2m',
+  bold: '\x1b[1m',
+  cyan: '\x1b[36m',
+  green: '\x1b[32m',
+  yellow: '\x1b[33m',
+  red: '\x1b[31m',
+  gray: '\x1b[90m',
+};
+
 if (process.env["OPENAI_API_KEY"] === undefined) {
   console.warn(
     "Warning: OPENAI_API_KEY is not set. The pipeline will not work without it.",
@@ -36,40 +47,53 @@ app.use("/tmp", express.static("tmp"));
 app.use((req, _res, next) => {
   const start = Date.now();
   _res.on("finish", () => {
-    console.log(`[http] ${req.method} ${req.path} ${_res.statusCode} (${Date.now() - start}ms)`);
+    console.log(`${C.gray}[http] ${req.method} ${req.path} ${_res.statusCode} (${Date.now() - start}ms)${C.reset}`);
   });
   next();
 });
 
-app.post("/api/jobs", upload.single("audio"), (req, res) => {
-  if (!req.file) {
+app.post("/api/jobs", upload.fields([{ name: "audio", maxCount: 1 }, { name: "chordsXml", maxCount: 1 }]), (req, res) => {
+  const files = req.files as Record<string, Express.Multer.File[]> | undefined;
+  const audioFile = files?.["audio"]?.[0];
+  const chordsFile = files?.["chordsXml"]?.[0];
+
+  if (!audioFile) {
     res.status(400).json({ error: "audio file required" });
     return;
   }
+
+  let chordsXml: string | undefined;
+  if (chordsFile) {
+    const rawXml = require("fs").readFileSync(chordsFile.path, "utf-8") as string;
+    if (!rawXml.includes("<harmony>")) {
+      res.status(400).json({ error: "chordsXml file contains no chord symbols. Upload an iReal Pro MusicXML export." });
+      return;
+    }
+    chordsXml = rawXml;
+  }
+
   const jobId = randomUUID();
-  const audioPath = path.resolve(req.file.path);
-  const chordChanges =
-    typeof req.body["chords"] === "string" ? req.body["chords"] : undefined;
+  const audioPath = path.resolve(audioFile.path);
   const jobOutputDir = path.join(JOBS_DIR, jobId);
 
-  store.create(jobId, { audioPath, chordChanges });
-  console.log(`[job:${jobId}] created file=${req.file.originalname}`);
+  store.create(jobId, { audioPath, chordsXml });
+  console.log(`${C.bold}${C.cyan}[job:${jobId}]${C.reset} created file=${audioFile.originalname}`);
 
   const stageStart: Record<string, number> = {};
 
   runPipeline(
-    { audioPath, chordChanges },
+    { audioPath, chordsXml },
     { pythonServiceUrl: PYTHON_URL, jobOutputDir },
     (event) => {
       store.addEvent(jobId, event);
       if (event.type === "stage_start" && event.stage) {
         stageStart[event.stage] = Date.now();
-        console.log(`[job:${jobId}] stage_start: ${event.stage}`);
+        console.log(`${C.bold}${C.cyan}[job:${jobId}]${C.reset} ${C.yellow}▶ ${event.stage}${C.reset}`);
       } else if (event.type === "stage_complete" && event.stage) {
         const elapsed = ((Date.now() - (stageStart[event.stage] ?? Date.now())) / 1000).toFixed(2);
-        console.log(`[job:${jobId}] stage_complete: ${event.stage} (${elapsed}s)`);
+        console.log(`${C.bold}${C.cyan}[job:${jobId}]${C.reset} ${C.green}✓ ${event.stage}${C.reset}${C.dim} (${elapsed}s)${C.reset}`);
       } else if (event.type === "stage_error") {
-        console.error(`[job:${jobId}] stage_error: ${event.error}`);
+        console.error(`${C.bold}${C.cyan}[job:${jobId}]${C.reset} ${C.red}✗ stage_error: ${event.error}${C.reset}`);
       }
     },
   )
@@ -81,12 +105,12 @@ app.post("/api/jobs", upload.single("audio"), (req, res) => {
         musicxmlPath: toUrl(result.musicxmlPath),
         pdfPath: toUrl(result.pdfPath),
       });
-      console.log(`[job:${jobId}] complete`);
+      console.log(`${C.bold}${C.cyan}[job:${jobId}]${C.reset} ${C.green}${C.bold}complete${C.reset}`);
     })
     .catch((err: unknown) => {
       const message = err instanceof Error ? err.message : String(err);
       store.fail(jobId, message);
-      console.error(`[job:${jobId}] failed: ${message}`);
+      console.error(`${C.bold}${C.cyan}[job:${jobId}]${C.reset} ${C.red}${C.bold}failed:${C.reset}${C.red} ${message}${C.reset}`);
     });
 
   res.json({ jobId });

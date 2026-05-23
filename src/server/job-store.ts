@@ -6,12 +6,12 @@ export class JobStore {
   private jobs = new Map<string, JobState>();
   private subscribers = new Map<string, Set<Subscriber>>();
 
-  create(id: string, input: { audioPath: string; chordChanges?: string }): JobState {
+  create(id: string, input: { audioPath: string; chordsXml?: string }): JobState {
     const job: JobState = {
       id,
       status: 'pending',
       audioPath: input.audioPath,
-      chordChanges: input.chordChanges,
+      chordsXml: input.chordsXml,
       createdAt: new Date(),
       events: [],
     };
