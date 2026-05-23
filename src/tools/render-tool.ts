@@ -1,5 +1,5 @@
 import { spawn } from 'child_process';
-import { writeFile } from 'fs/promises';
+import { readFile, writeFile } from 'fs/promises';
 import { join } from 'path';
 import { Midi } from '@tonejs/midi';
 import { BaseTool } from '../tool';
@@ -59,6 +59,25 @@ function spawnAndWait(cmd: string, args: string[]): Promise<void> {
   });
 }
 
+// MuseScore auto-detects clefs per measure when importing MIDI, causing the treble clef
+// to switch to bass and vice versa whenever pitches cross staff boundaries. We post-process
+// the generated MusicXML to remove all mid-score clef changes, enforcing a fixed treble clef
+// for staff 1 (RH) and bass clef for staff 2 (LH) throughout.
+async function fixClefs(xmlPath: string): Promise<void> {
+  let xml = await readFile(xmlPath, 'utf-8');
+
+  // Strip every <clef ...>...</clef> block from the document.
+  xml = xml.replace(/<clef[^>]*>[\s\S]*?<\/clef>/g, '');
+
+  // Re-insert fixed clefs into the very first <attributes> block only.
+  const fixedClefs =
+    '<clef number="1"><sign>G</sign><line>2</line></clef>\n        ' +
+    '<clef number="2"><sign>F</sign><line>4</line></clef>';
+  xml = xml.replace(/<\/attributes>/, `${fixedClefs}\n        </attributes>`);
+
+  await writeFile(xmlPath, xml, 'utf-8');
+}
+
 export class RenderTool extends BaseTool {
   private hands: HandSeparation;
   private outputDir: string;
@@ -81,7 +100,8 @@ export class RenderTool extends BaseTool {
     const mscore = getMscore();
     await writeFile(midiPath, handsToMidiBuffer(this.hands.leftHand, this.hands.rightHand));
     await spawnAndWait(mscore, ['-o', xmlPath, midiPath]);
-    await spawnAndWait(mscore, ['-o', pdfPath, midiPath]);
+    await fixClefs(xmlPath);
+    await spawnAndWait(mscore, ['-o', pdfPath, xmlPath]);
 
     const result: RendererResult = { musicxmlPath: xmlPath, pdfPath };
     return JSON.stringify(result);
