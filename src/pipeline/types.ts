@@ -8,6 +8,12 @@ export interface MidiEvent {
   velocity: number;
 }
 
+export interface ChordEvent {
+  measure: number; // 1-based
+  beat: number;    // 1-based, within the measure
+  symbol: string;  // e.g. "Dm7", "G7", "Amaj7"
+}
+
 export interface NoteConfidence {
   noteId: string;
   confidence: number;
@@ -40,7 +46,7 @@ export interface EditOperation {
 
 export interface AudioInput {
   audioPath: string;
-  chordChanges?: string;
+  chordsXml?: string;
 }
 
 export interface TranscriptionResult {
@@ -82,7 +88,7 @@ export interface JobState {
   id: string;
   status: JobStatus;
   audioPath: string;
-  chordChanges?: string;
+  chordsXml?: string;
   result?: RendererResult;
   error?: string;
   createdAt: Date;
