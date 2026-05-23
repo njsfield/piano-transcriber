@@ -76,7 +76,7 @@ app.post("/api/jobs", upload.fields([{ name: "audio", maxCount: 1 }, { name: "ch
       res.status(400).json({ error: "Failed to read chord chart file" });
       return;
     }
-    if (!rawXml.includes("<harmony>")) {
+    if (!rawXml.includes("<harmony")) {
       res.status(400).json({ error: "chordsXml file contains no chord symbols. Upload an iReal Pro MusicXML export." });
       return;
     }
