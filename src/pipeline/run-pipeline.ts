@@ -118,7 +118,23 @@ export async function runPipeline(
   done('renderer');
 
   if (chords.length > 0) {
-    await injectHarmonies(renderer.musicxmlPath, chords, analysis.features.temposBpm);
+    // Offset chord measure numbers to account for silence before the first note.
+    // The rendered score's measure 1 is the start of the audio; the iReal chart's
+    // measure 1 is the first musical bar. If there are N measures of silence first,
+    // iReal measure M maps to rendered measure M + N.
+    const firstNoteMs = transcription.midi.length > 0
+      ? Math.min(...transcription.midi.map(n => n.startMs))
+      : 0;
+    const tempo = analysis.features.temposBpm[0] ?? 120;
+    const beatsPerMeasure = parseInt(analysis.features.timeSignature.split('/')[0] ?? '4', 10);
+    const msPerMeasure = (60000 / tempo) * beatsPerMeasure;
+    const measureOffset = Math.floor(firstNoteMs / msPerMeasure);
+
+    const shiftedChords = measureOffset > 0
+      ? chords.map(c => ({ ...c, measure: c.measure + measureOffset }))
+      : chords;
+
+    await injectHarmonies(renderer.musicxmlPath, shiftedChords, analysis.features.temposBpm);
   }
 
   return renderer;
