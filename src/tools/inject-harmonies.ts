@@ -55,7 +55,7 @@ function injectIntoMeasure(
     // Walk notes to find insertion index.
     let cumDiv = 0;
     let insertIdx = -1;
-    const noteRe = /<note>[\s\S]*?<\/note>/g;
+    const noteRe = /<note[^>]*>[\s\S]*?<\/note>/g;
     let m: RegExpExecArray | null;
 
     while ((m = noteRe.exec(content)) !== null) {
