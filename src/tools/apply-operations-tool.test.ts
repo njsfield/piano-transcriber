@@ -12,35 +12,40 @@ describe('ApplyOperationsTool', () => {
   it('deletes notes with type "delete"', () => {
     const ops: EditOperation[] = [{ type: 'delete', noteId: 'n2' }];
     const tool = new ApplyOperationsTool(baseNotes);
-    const result: MidiEvent[] = JSON.parse(tool.execute({ operations: ops }) as string);
+    const parsed = JSON.parse(tool.execute({ operations: ops }) as string);
+    const result: MidiEvent[] = parsed.midi;
     expect(result.map(n => n.id)).toEqual(['n1', 'n3']);
   });
 
   it('respells a note pitch', () => {
     const ops: EditOperation[] = [{ type: 'respell', noteId: 'n1', newPitch: 61 }];
     const tool = new ApplyOperationsTool(baseNotes);
-    const result: MidiEvent[] = JSON.parse(tool.execute({ operations: ops }) as string);
+    const parsed = JSON.parse(tool.execute({ operations: ops }) as string);
+    const result: MidiEvent[] = parsed.midi;
     expect(result.find(n => n.id === 'n1')!.pitch).toBe(61);
   });
 
   it('requantizes a note duration', () => {
     const ops: EditOperation[] = [{ type: 'requantize', noteId: 'n3', newDurationMs: 250 }];
     const tool = new ApplyOperationsTool(baseNotes);
-    const result: MidiEvent[] = JSON.parse(tool.execute({ operations: ops }) as string);
+    const parsed = JSON.parse(tool.execute({ operations: ops }) as string);
+    const result: MidiEvent[] = parsed.midi;
     expect(result.find(n => n.id === 'n3')!.durationMs).toBe(250);
   });
 
   it('keeps notes with type "keep" unchanged', () => {
     const ops: EditOperation[] = [{ type: 'keep', noteId: 'n2' }];
     const tool = new ApplyOperationsTool(baseNotes);
-    const result: MidiEvent[] = JSON.parse(tool.execute({ operations: ops }) as string);
+    const parsed = JSON.parse(tool.execute({ operations: ops }) as string);
+    const result: MidiEvent[] = parsed.midi;
     expect(result).toHaveLength(3);
     expect(result.find(n => n.id === 'n2')!.pitch).toBe(62);
   });
 
   it('passes through notes with no operation', () => {
     const tool = new ApplyOperationsTool(baseNotes);
-    const result: MidiEvent[] = JSON.parse(tool.execute({ operations: [] }) as string);
+    const parsed = JSON.parse(tool.execute({ operations: [] }) as string);
+    const result: MidiEvent[] = parsed.midi;
     expect(result).toHaveLength(3);
   });
 });
