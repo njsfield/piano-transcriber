@@ -6,3 +6,7 @@ src/*.eval.html
 tmp/
 .venv/
 __pycache__/
+test-input/
+test-output/
+dist/
+docs/

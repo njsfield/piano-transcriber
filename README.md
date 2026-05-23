@@ -1,5 +1,9 @@
 # Piano Transcriber
 
+![UI](assets/ui.png)
+![Transcription](assets/transcription.png)
+![Output Score](assets/output-score.png)
+
 A five-agent pipeline that accepts a WAV or M4A piano recording, transcribes it via [basic-pitch](https://github.com/spotify/basic-pitch), cleans it up with GPT reasoning, and delivers downloadable MusicXML + PDF sheet music through a React UI with live SSE progress.
 
 ## Architecture
@@ -65,6 +69,7 @@ MSCORE_PATH=mscore               # or full path, e.g. /Applications/MuseScore\ 4
 You need three terminals:
 
 **Terminal 1 — Python transcription service:**
+
 ```bash
 cd python
 source .venv/bin/activate
@@ -72,11 +77,13 @@ uvicorn main:app --port 8000 --reload
 ```
 
 **Terminal 2 — TypeScript dev server + Vite:**
+
 ```bash
 yarn dev
 ```
 
 This runs `concurrently`:
+
 - `vite` on `http://localhost:5173` (React UI)
 - `ts-node src/server/server.ts` on `http://localhost:3001` (Express API)
 
@@ -117,9 +124,9 @@ python/
 
 ## Environment variables reference
 
-| Variable | Default | Description |
-|---|---|---|
-| `OPENAI_API_KEY` | — | Required. Your OpenAI key. |
+| Variable             | Default                 | Description                             |
+| -------------------- | ----------------------- | --------------------------------------- |
+| `OPENAI_API_KEY`     | —                       | Required. Your OpenAI key.              |
 | `PYTHON_SERVICE_URL` | `http://localhost:8000` | URL of the Python transcription service |
-| `PORT` | `3001` | Express server port |
-| `MSCORE_PATH` | `mscore` | Path to MuseScore CLI binary |
+| `PORT`               | `3001`                  | Express server port                     |
+| `MSCORE_PATH`        | `mscore`                | Path to MuseScore CLI binary            |
