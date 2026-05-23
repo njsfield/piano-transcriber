@@ -4,4 +4,5 @@ node_modules
 .claude
 src/*.eval.html
 tmp/
-python/
+.venv/
+__pycache__/
