@@ -6,6 +6,9 @@ export function parseChordsXml(xml: string): ChordEvent[] {
     throw new Error('Not a valid MusicXML file: missing <divisions>');
   }
   const divisions = parseInt(divisionsMatch[1], 10);
+  if (divisions <= 0) {
+    throw new Error('Not a valid MusicXML file: <divisions> must be a positive integer');
+  }
 
   const chords: ChordEvent[] = [];
   const measureRe = /<measure\s+number="(\d+)"[^>]*>([\s\S]*?)<\/measure>/g;
@@ -63,7 +66,7 @@ function extractSymbol(harmonyXml: string): string | null {
   const step = stepMatch[1];
   const alterMatch = harmonyXml.match(/<root-alter>([-\d.]+)<\/root-alter>/);
   const alter = alterMatch ? parseFloat(alterMatch[1]) : 0;
-  const accidental = alter < 0 ? 'b' : alter > 0 ? '#' : '';
+  const accidental = alter <= -2 ? 'bb' : alter === -1 ? 'b' : alter >= 2 ? '##' : alter === 1 ? '#' : '';
 
   // iReal Pro always sets the `text` attribute on <kind> to the display quality string.
   const kindMatch = harmonyXml.match(/<kind[^>]+text="([^"]*)"[^>]*>/);

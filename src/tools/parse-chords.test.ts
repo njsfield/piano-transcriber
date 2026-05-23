@@ -49,4 +49,30 @@ describe('parseChordsXml', () => {
     const noDivisions = FIXTURE.replace(/<divisions>768<\/divisions>/, '');
     expect(() => parseChordsXml(noDivisions)).toThrow('missing <divisions>');
   });
+
+  it('does not advance beat position for chord notes', () => {
+    const xml = `<?xml version="1.0" encoding="UTF-8"?>
+<score-partwise version="3.1">
+  <part id="P1">
+    <measure number="1">
+      <attributes><divisions>2</divisions></attributes>
+      <harmony>
+        <root><root-step>C</root-step></root>
+        <kind text="maj7">major-seventh</kind>
+      </harmony>
+      <note><rest/><duration>2</duration><type>half</type></note>
+      <note><chord/><rest/><duration>2</duration><type>half</type></note>
+      <note><rest/><duration>2</duration><type>half</type></note>
+      <harmony>
+        <root><root-step>F</root-step></root>
+        <kind text="7">dominant</kind>
+      </harmony>
+    </measure>
+  </part>
+</score-partwise>`;
+    const chords = parseChordsXml(xml);
+    expect(chords).toHaveLength(2);
+    expect(chords[0]).toEqual({ measure: 1, beat: 1, symbol: 'Cmaj7' });
+    expect(chords[1]).toEqual({ measure: 1, beat: 3, symbol: 'F7' });
+  });
 });
