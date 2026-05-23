@@ -37,7 +37,8 @@ function chordTones(symbol: string): Set<number> {
   const [, step, acc, quality] = m;
   const accVal = [...acc].reduce((sum, c) => sum + (c === '#' ? 1 : -1), 0);
   const rootPc = ((ROOT_TO_PC[step] ?? 0) + accVal + 12) % 12;
-  const intervals = QUALITY_INTERVALS[quality] ?? [0, 4, 7];
+  const strippedQuality = quality.replace(/\/[A-G][b#]*$/, '');
+  const intervals = QUALITY_INTERVALS[strippedQuality] ?? [0, 4, 7];
   return new Set(intervals.map(i => (rootPc + i) % 12));
 }
 

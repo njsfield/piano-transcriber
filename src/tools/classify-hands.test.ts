@@ -82,6 +82,19 @@ describe('classifyHands', () => {
     expect(leftHand.map(n => n.id)).toContain('d');
   });
 
+  it('handles slash chords by ignoring the bass note', () => {
+    // G7/B should be treated as G7: G=7, B=11, D=2, F=5
+    const chords: ChordEvent[] = [{ measure: 1, beat: 1, symbol: 'G7/B' }];
+    const gNote = note('g', 43); // G2, pitch class 7
+    const fNote = note('f', 53); // F3, pitch class 5
+    const eNote = note('e', 52); // E3, pitch class 4 — NOT in G7
+    const { leftHand } = classifyHands([gNote, fNote, eNote], chords, 120, 4);
+    const lhIds = leftHand.map(n => n.id);
+    expect(lhIds).toContain('g');
+    expect(lhIds).toContain('f');
+    expect(lhIds).not.toContain('e');
+  });
+
   it('handles double-flat (bb) enharmonic chords', () => {
     // Dbbm is enharmonic with Cm: C=0, Eb=3, G=7
     const chords: ChordEvent[] = [{ measure: 1, beat: 1, symbol: 'Dbbm' }];

@@ -14,28 +14,24 @@ function handsToMidiBuffer(leftHand: MidiEvent[], rightHand: MidiEvent[]): Buffe
 
   // Track 0 = right hand (treble). Track 1 = left hand (bass).
   // MuseScore renders two-track piano MIDI as a grand staff with fixed clefs.
-  if (rightHand.length > 0) {
-    const rh = midi.addTrack();
-    for (const note of rightHand) {
-      rh.addNote({
-        midi: note.pitch,
-        time: note.startMs / 1000,
-        duration: note.durationMs / 1000,
-        velocity: note.velocity / 127,
-      });
-    }
+  const rh = midi.addTrack();
+  for (const note of rightHand) {
+    rh.addNote({
+      midi: note.pitch,
+      time: note.startMs / 1000,
+      duration: note.durationMs / 1000,
+      velocity: note.velocity / 127,
+    });
   }
 
-  if (leftHand.length > 0) {
-    const lh = midi.addTrack();
-    for (const note of leftHand) {
-      lh.addNote({
-        midi: note.pitch,
-        time: note.startMs / 1000,
-        duration: note.durationMs / 1000,
-        velocity: note.velocity / 127,
-      });
-    }
+  const lh = midi.addTrack();
+  for (const note of leftHand) {
+    lh.addNote({
+      midi: note.pitch,
+      time: note.startMs / 1000,
+      duration: note.durationMs / 1000,
+      velocity: note.velocity / 127,
+    });
   }
 
   return Buffer.from(midi.toArray());
