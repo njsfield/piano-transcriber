@@ -45,6 +45,6 @@ export class ApplyOperationsTool extends BaseTool {
         return note;
       });
 
-    return JSON.stringify(result);
+    return JSON.stringify({ midi: result });
   }
 }

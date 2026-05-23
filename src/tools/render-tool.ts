@@ -6,7 +6,8 @@ import { BaseTool } from '../tool';
 import { ToolParameters } from '../types';
 import type { MidiEvent, RendererResult } from '../pipeline/types';
 
-const MSCORE = process.env['MSCORE_PATH'] ?? 'mscore';
+// Read lazily so dotenv has time to load before this module's top-level runs.
+function getMscore() { return process.env['MSCORE_PATH'] ?? 'mscore'; }
 
 function notesToMidiBuffer(notes: MidiEvent[]): Buffer {
   const midi = new Midi();
@@ -63,9 +64,10 @@ export class RenderTool extends BaseTool {
     const xmlPath = join(this.outputDir, 'output.musicxml');
     const pdfPath = join(this.outputDir, 'output.pdf');
 
+    const mscore = getMscore();
     await writeFile(midiPath, notesToMidiBuffer(this.notes));
-    await spawnAndWait(MSCORE, ['-o', xmlPath, midiPath]);
-    await spawnAndWait(MSCORE, ['-o', pdfPath, midiPath]);
+    await spawnAndWait(mscore, ['-o', xmlPath, midiPath]);
+    await spawnAndWait(mscore, ['-o', pdfPath, midiPath]);
 
     const result: RendererResult = { musicxmlPath: xmlPath, pdfPath };
     return JSON.stringify(result);

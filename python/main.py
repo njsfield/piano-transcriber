@@ -1,6 +1,8 @@
 import os
+import sys
 import uuid
 import tempfile
+from contextlib import contextmanager
 from typing import List
 
 from fastapi import FastAPI, File, UploadFile
@@ -35,6 +37,17 @@ class TranscribeResponse(BaseModel):
     confidences: List[NoteConfidence]
 
 
+@contextmanager
+def suppress_stdout():
+    with open(os.devnull, 'w') as devnull:
+        old = sys.stdout
+        sys.stdout = devnull
+        try:
+            yield
+        finally:
+            sys.stdout = old
+
+
 @app.post("/transcribe", response_model=TranscribeResponse)
 async def transcribe(audio: UploadFile = File(...)):
     suffix = os.path.splitext(audio.filename or "audio.wav")[1] or ".wav"
@@ -45,7 +58,8 @@ async def transcribe(audio: UploadFile = File(...)):
     try:
         from basic_pitch.inference import predict
 
-        _model_output, _midi_data, note_events = predict(tmp_path)
+        with suppress_stdout():
+            _model_output, _midi_data, note_events = predict(tmp_path)
 
         midi_events: List[MidiEvent] = []
         confidences: List[NoteConfidence] = []

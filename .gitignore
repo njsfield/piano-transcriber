@@ -3,3 +3,5 @@ node_modules
 .worktrees
 .claude
 src/*.eval.html
+tmp/
+python/
