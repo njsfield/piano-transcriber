@@ -32,10 +32,11 @@ const QUALITY_INTERVALS: Record<string, number[]> = {
 const LH_PITCH_CEILING = 64; // E4 — practical ceiling for shell voicings
 
 function chordTones(symbol: string): Set<number> {
-  const m = symbol.match(/^([A-G])([b#]?)(.*)$/);
+  const m = symbol.match(/^([A-G])([b#]*)(.*)$/);
   if (!m) return new Set([0, 4, 7]);
   const [, step, acc, quality] = m;
-  const rootPc = ((ROOT_TO_PC[step] ?? 0) + (acc === '#' ? 1 : acc === 'b' ? -1 : 0) + 12) % 12;
+  const accVal = [...acc].reduce((sum, c) => sum + (c === '#' ? 1 : -1), 0);
+  const rootPc = ((ROOT_TO_PC[step] ?? 0) + accVal + 12) % 12;
   const intervals = QUALITY_INTERVALS[quality] ?? [0, 4, 7];
   return new Set(intervals.map(i => (rootPc + i) % 12));
 }

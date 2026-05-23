@@ -72,4 +72,22 @@ describe('classifyHands', () => {
     expect(lhIds).toContain('f');
     expect(lhIds).not.toContain('e');
   });
+
+  it('handles double-sharp (##) enharmonic chords', () => {
+    // C##maj7 is enharmonic with Dmaj7: D=2, F#=6, A=9, C#=1
+    const chords: ChordEvent[] = [{ measure: 1, beat: 1, symbol: 'C##maj7' }];
+    // D3=50, pitch class 2 — should be a chord tone of C##maj7 (= Dmaj7)
+    const dNote = note('d', 50);
+    const { leftHand } = classifyHands([dNote], chords, 120, 4);
+    expect(leftHand.map(n => n.id)).toContain('d');
+  });
+
+  it('handles double-flat (bb) enharmonic chords', () => {
+    // Dbbm is enharmonic with Cm: C=0, Eb=3, G=7
+    const chords: ChordEvent[] = [{ measure: 1, beat: 1, symbol: 'Dbbm' }];
+    // C3=48, pitch class 0 — should be a chord tone of Dbbm (= Cm)
+    const cNote = note('c', 48);
+    const { leftHand } = classifyHands([cNote], chords, 120, 4);
+    expect(leftHand.map(n => n.id)).toContain('c');
+  });
 });
