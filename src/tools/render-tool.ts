@@ -4,22 +4,40 @@ import { join } from 'path';
 import { Midi } from '@tonejs/midi';
 import { BaseTool } from '../tool';
 import { ToolParameters } from '../types';
-import type { MidiEvent, RendererResult } from '../pipeline/types';
+import type { MidiEvent, HandSeparation, RendererResult } from '../pipeline/types';
 
 // Read lazily so dotenv has time to load before this module's top-level runs.
 function getMscore() { return process.env['MSCORE_PATH'] ?? 'mscore'; }
 
-function notesToMidiBuffer(notes: MidiEvent[]): Buffer {
+function handsToMidiBuffer(leftHand: MidiEvent[], rightHand: MidiEvent[]): Buffer {
   const midi = new Midi();
-  const track = midi.addTrack();
-  for (const note of notes) {
-    track.addNote({
-      midi: note.pitch,
-      time: note.startMs / 1000,
-      duration: note.durationMs / 1000,
-      velocity: note.velocity / 127,
-    });
+
+  // Track 0 = right hand (treble). Track 1 = left hand (bass).
+  // MuseScore renders two-track piano MIDI as a grand staff with fixed clefs.
+  if (rightHand.length > 0) {
+    const rh = midi.addTrack();
+    for (const note of rightHand) {
+      rh.addNote({
+        midi: note.pitch,
+        time: note.startMs / 1000,
+        duration: note.durationMs / 1000,
+        velocity: note.velocity / 127,
+      });
+    }
   }
+
+  if (leftHand.length > 0) {
+    const lh = midi.addTrack();
+    for (const note of leftHand) {
+      lh.addNote({
+        midi: note.pitch,
+        time: note.startMs / 1000,
+        duration: note.durationMs / 1000,
+        velocity: note.velocity / 127,
+      });
+    }
+  }
+
   return Buffer.from(midi.toArray());
 }
 
@@ -46,12 +64,12 @@ function spawnAndWait(cmd: string, args: string[]): Promise<void> {
 }
 
 export class RenderTool extends BaseTool {
-  private notes: MidiEvent[];
+  private hands: HandSeparation;
   private outputDir: string;
 
-  constructor(notes: MidiEvent[], outputDir: string) {
+  constructor(hands: HandSeparation, outputDir: string) {
     super('render_midi', 'Convert MIDI events to MusicXML and PDF using MuseScore');
-    this.notes = notes;
+    this.hands = hands;
     this.outputDir = outputDir;
   }
 
@@ -65,7 +83,7 @@ export class RenderTool extends BaseTool {
     const pdfPath = join(this.outputDir, 'output.pdf');
 
     const mscore = getMscore();
-    await writeFile(midiPath, notesToMidiBuffer(this.notes));
+    await writeFile(midiPath, handsToMidiBuffer(this.hands.leftHand, this.hands.rightHand));
     await spawnAndWait(mscore, ['-o', xmlPath, midiPath]);
     await spawnAndWait(mscore, ['-o', pdfPath, midiPath]);
 
