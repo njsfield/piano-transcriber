@@ -1,4 +1,3 @@
-// src/ui/components/UploadForm.tsx
 import { useState, useRef } from 'react';
 
 interface Props {
@@ -8,25 +7,28 @@ interface Props {
 export function UploadForm({ onJobCreated }: Props) {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const fileRef = useRef<HTMLInputElement>(null);
-  const chordsRef = useRef<HTMLTextAreaElement>(null);
+  const audioRef = useRef<HTMLInputElement>(null);
+  const chordsRef = useRef<HTMLInputElement>(null);
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
-    const file = fileRef.current?.files?.[0];
-    if (!file) { setError('Please select an audio file'); return; }
+    const audioFile = audioRef.current?.files?.[0];
+    if (!audioFile) { setError('Please select an audio file'); return; }
 
     setLoading(true);
     setError(null);
 
     const form = new FormData();
-    form.append('audio', file);
-    const chords = chordsRef.current?.value.trim();
-    if (chords) form.append('chords', chords);
+    form.append('audio', audioFile);
+    const chordsFile = chordsRef.current?.files?.[0];
+    if (chordsFile) form.append('chordsXml', chordsFile);
 
     try {
       const res = await fetch('/api/jobs', { method: 'POST', body: form });
-      if (!res.ok) throw new Error(`Server error: ${res.status}`);
+      if (!res.ok) {
+        const body = await res.json().catch(() => ({})) as { error?: string };
+        throw new Error(body.error ?? `Server error: ${res.status}`);
+      }
       const { jobId } = await res.json() as { jobId: string };
       onJobCreated(jobId);
     } catch (err) {
@@ -40,20 +42,25 @@ export function UploadForm({ onJobCreated }: Props) {
       <div>
         <label className="block text-sm font-medium mb-1">Audio file (WAV or M4A)</label>
         <input
-          ref={fileRef}
+          ref={audioRef}
           type="file"
           accept=".wav,.m4a,audio/wav,audio/x-m4a"
           className="block w-full text-sm border border-zinc-700 rounded p-2 bg-zinc-900"
         />
       </div>
       <div>
-        <label className="block text-sm font-medium mb-1">Chord changes (optional)</label>
-        <textarea
+        <label className="block text-sm font-medium mb-1">
+          Chord chart — iReal Pro MusicXML export (optional)
+        </label>
+        <input
           ref={chordsRef}
-          rows={3}
-          placeholder="e.g. Cmaj7 | Am7 | Dm7 | G7"
-          className="w-full text-sm border border-zinc-700 rounded p-2 bg-zinc-900 font-mono resize-none"
+          type="file"
+          accept=".musicxml,.xml"
+          className="block w-full text-sm border border-zinc-700 rounded p-2 bg-zinc-900"
         />
+        <p className="text-xs text-zinc-500 mt-1">
+          In iReal Pro: share song → MusicXML
+        </p>
       </div>
       {error && <p className="text-red-400 text-sm">{error}</p>}
       <button
