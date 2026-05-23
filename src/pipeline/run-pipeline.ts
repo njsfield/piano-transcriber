@@ -19,6 +19,8 @@ import { createEditorAgent } from '../agents/editor-agent';
 import { createRendererAgent } from '../agents/renderer-agent';
 import { parseChordsXml } from '../tools/parse-chords';
 import { injectHarmonies } from '../tools/inject-harmonies';
+import { classifyHands } from '../tools/classify-hands';
+import type { HandSeparation } from './types';
 
 export interface PipelineConfig {
   pythonServiceUrl: string;
@@ -82,9 +84,27 @@ export async function runPipeline(
   const analysis = parseOutput<AnalysisResult>(analysisResponse);
   done('analysis');
 
+  // Classify notes as left hand (shell voicings) or right hand (solo).
+  const beatsPerMeasure = parseInt(analysis.features.timeSignature.split('/')[0] ?? '4', 10);
+  const hands = classifyHands(
+    transcription.midi,
+    chords,
+    analysis.features.temposBpm[0] ?? 120,
+    beatsPerMeasure,
+  );
+
   // Stage 3: Cleanup
   go('cleanup');
   const cleanupAgent = createCleanupAgent();
+  const handContext = hands.leftHand.length > 0 || hands.rightHand.length > 0
+    ? [
+        `\nHand classification:`,
+        `  Left hand (shell voicings, chord tones): ${hands.leftHand.length} notes — be very conservative, these are harmonic.`,
+        `  Right hand (solo improvisation): ${hands.rightHand.length} notes — apply normal cleanup judgment.`,
+        `  Left hand note IDs: ${hands.leftHand.map(n => n.id).join(', ')}`,
+      ].join('\n')
+    : '';
+
   const cleanupTask = [
     `Review this jazz piano transcription for cleanup.`,
     `\nMIDI events (${transcription.midi.length} notes):\n${JSON.stringify(transcription.midi)}`,
@@ -92,6 +112,7 @@ export async function runPipeline(
     chords.length > 0
       ? `\nChord chart: ${chords.map(c => `bar ${c.measure} beat ${c.beat}: ${c.symbol}`).join(', ')}`
       : '',
+    handContext,
     `\nReturn the operations JSON.`,
   ].join('');
   const cleanupResponse = await cleanupAgent.run(cleanupTask);
@@ -110,7 +131,15 @@ export async function runPipeline(
   // Stage 5: Renderer
   go('renderer');
   const outputDir = jobOutputDir;
-  const rendererAgent = createRendererAgent(editor.midi, outputDir);
+
+  // Re-apply the LH/RH split to the edited note list (editor may have deleted some notes).
+  const lhIds = new Set(hands.leftHand.map(n => n.id));
+  const handsAfterEdit: HandSeparation = {
+    leftHand: editor.midi.filter(n => lhIds.has(n.id)),
+    rightHand: editor.midi.filter(n => !lhIds.has(n.id)),
+  };
+
+  const rendererAgent = createRendererAgent(handsAfterEdit, outputDir);
   const rendererResponse = await rendererAgent.run(
     `Render the MIDI events to MusicXML and PDF. Use the render_midi tool and return the file paths as JSON.`,
   );
@@ -126,7 +155,6 @@ export async function runPipeline(
       ? Math.min(...transcription.midi.map(n => n.startMs))
       : 0;
     const tempo = analysis.features.temposBpm[0] ?? 120;
-    const beatsPerMeasure = parseInt(analysis.features.timeSignature.split('/')[0] ?? '4', 10);
     const msPerMeasure = (60000 / tempo) * beatsPerMeasure;
     const measureOffset = Math.floor(firstNoteMs / msPerMeasure);
 
