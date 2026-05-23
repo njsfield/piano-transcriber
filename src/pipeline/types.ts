@@ -67,6 +67,11 @@ export interface EditorResult {
   midi: MidiEvent[];
 }
 
+export interface HandSeparation {
+  leftHand: MidiEvent[];
+  rightHand: MidiEvent[];
+}
+
 export interface RendererResult {
   musicxmlPath: string;
   pdfPath: string;
