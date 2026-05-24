@@ -58,14 +58,11 @@ app.use((req, _res, next) => {
 
 app.post(
   "/api/jobs",
-  upload.fields([
-    { name: "midi", maxCount: 1 },
-    { name: "audio", maxCount: 1 },
-  ]),
+  upload.any(),
   (req, res) => {
-    const files = req.files as Record<string, Express.Multer.File[]> | undefined;
-    const midiFile = files?.["midi"]?.[0];
-    const audioFile = files?.["audio"]?.[0];
+    const files = (req.files ?? []) as Express.Multer.File[];
+    const midiFile = files.find(f => f.fieldname === 'midi');
+    const audioFile = files.find(f => f.fieldname === 'audio');
 
     if (!midiFile && audioFile) {
       res.status(400).json({ error: "Audio upload is no longer supported. Use MIDI recording." });
