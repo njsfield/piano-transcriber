@@ -11,13 +11,11 @@ import type {
   FeedbackResult,
   PipelineEvent,
   PipelineStage,
-  ChordEvent,
 } from './types';
 import { createAnalysisAgent } from '../agents/analysis-agent';
 import { createCleanupAgent } from '../agents/cleanup-agent';
 import { createEditorAgent } from '../agents/editor-agent';
 import { createRendererAgent } from '../agents/renderer-agent';
-import { createImprovFeedbackAgent } from '../agents/improv-feedback-agent';
 import { parseMidi } from '../tools/parse-midi';
 import { classifyHands } from '../tools/classify-hands';
 import type { HandSeparation } from './types';
@@ -53,7 +51,7 @@ export async function runPipeline(
   const { jobOutputDir } = config;
   await mkdir(jobOutputDir, { recursive: true });
 
-  const chords: ChordEvent[] = input.chords;
+  const chords = input.chords;
 
   const go = (stage: PipelineStage) => emit({ type: 'stage_start', stage });
   const done = (stage: PipelineStage) => emit({ type: 'stage_complete', stage });
@@ -151,6 +149,9 @@ export async function runPipeline(
   go('feedback');
   let feedbackResult: FeedbackResult | undefined;
   try {
+    // eslint-disable-next-line @typescript-eslint/ban-ts-comment
+    // @ts-ignore: module does not exist yet; dynamic import is intentionally deferred
+    const { createImprovFeedbackAgent } = await import('../agents/improv-feedback-agent');
     const feedbackAgent = createImprovFeedbackAgent(
       renderer.musicxmlPath,
       handsAfterEdit.rightHand,
@@ -161,8 +162,9 @@ export async function runPipeline(
       'Analyse this jazz piano improvisation and return the FeedbackResult JSON.',
     );
     feedbackResult = parseOutput<FeedbackResult>(feedbackResponse);
-  } catch {
-    // Feedback failure is non-fatal; feedbackResult stays undefined
+  } catch (err) {
+    console.warn('[feedback] stage failed (non-fatal):', err instanceof Error ? err.message : String(err));
+    emit({ type: 'stage_error', stage: 'feedback', error: err instanceof Error ? err.message : String(err) });
   }
   done('feedback');
 
