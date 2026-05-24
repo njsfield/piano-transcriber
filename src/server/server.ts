@@ -64,6 +64,21 @@ app.post(
     const midiFile = files.find(f => f.fieldname === 'midi');
     const audioFile = files.find(f => f.fieldname === 'audio');
 
+    // Save files to test-input directory for debugging
+    const testInputDir = path.resolve("test-input");
+    if (midiFile) {
+      const fs = require("fs");
+      fs.mkdirSync(testInputDir, { recursive: true });
+      fs.copyFileSync(midiFile.path, path.join(testInputDir, midiFile.originalname));
+      console.log(`${C.gray}[debug] saved midi file to ${path.join(testInputDir, midiFile.originalname)}${C.reset}`);
+    }
+    if (audioFile) {
+      const fs = require("fs");
+      fs.mkdirSync(testInputDir, { recursive: true });
+      fs.copyFileSync(audioFile.path, path.join(testInputDir, audioFile.originalname));
+      console.log(`${C.gray}[debug] saved audio file to ${path.join(testInputDir, audioFile.originalname)}${C.reset}`);
+    }
+
     if (!midiFile && audioFile) {
       res.status(400).json({ error: "Audio upload is no longer supported. Use MIDI recording." });
       return;
@@ -94,8 +109,8 @@ app.post(
     const stageStart: Record<string, number> = {};
 
     runPipeline(
-      { midiPath, chords } as never,
-      { jobOutputDir } as never,
+      { midiPath, chords },
+      { jobOutputDir },
       (event) => {
         store.addEvent(jobId, event);
         if (event.type === "stage_start" && event.stage) {
@@ -151,7 +166,11 @@ app.get("/api/jobs/:id/events", (req, res) => {
 
   const unsub = store.subscribe(req.params["id"]!, (event) => {
     res.write(`data: ${JSON.stringify(event)}\n\n`);
-    if (event.type === "pipeline_complete" || event.type === "stage_error") {
+    if (event.type === "pipeline_complete") {
+      res.end();
+      unsub();
+    } else if (event.type === "stage_error" && !event.stage) {
+      // Fatal pipeline error (no stage = top-level failure)
       res.end();
       unsub();
     }
