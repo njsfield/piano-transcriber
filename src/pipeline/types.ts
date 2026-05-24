@@ -44,6 +44,13 @@ export interface EditOperation {
   newDurationMs?: number;
 }
 
+/** Replaces AudioInput. midiPath is the path to the uploaded MIDI binary on disk. */
+export interface PipelineInput {
+  midiPath: string;
+  chords: ChordEvent[];
+}
+
+/** Retained for agents/tools that still reference AudioInput internally */
 export interface AudioInput {
   audioPath: string;
   chordsXml?: string;
@@ -72,12 +79,41 @@ export interface HandSeparation {
   rightHand: MidiEvent[];
 }
 
+export interface CriterionResult {
+  count: number;
+  grade: string;       // 'A+' | 'A' | 'A-' | 'B+' ... 'F' | 'n/a'
+  examples: string[];  // e.g. ["m7: G#→B→D over E7 (up)"]
+  note?: string;       // caveats, e.g. "grace notes unreliable"
+}
+
+export interface FeedbackResult {
+  arpeggios: CriterionResult;
+  scaleRuns: CriterionResult;
+  nonChordTones: CriterionResult;
+  unresolvedNcts: CriterionResult;
+  bluesScale: CriterionResult;
+  alteredDominant: CriterionResult;
+  interestingPatterns: CriterionResult;
+  leaps: CriterionResult;
+  motivicDevelopment: CriterionResult;
+  expressiveDevices: CriterionResult;
+  phraseStartBeats: CriterionResult;
+  phraseEndBeats: CriterionResult;
+  phraseLength: CriterionResult;
+  interPhraseRest: CriterionResult;
+  pitchRange: CriterionResult;
+  rhythmicUnits: CriterionResult;
+  overallGrade: string;
+  overallNote: string;
+}
+
 export interface RendererResult {
   musicxmlPath: string;
   pdfPath: string;
+  feedbackResult?: FeedbackResult;
 }
 
-export type PipelineStage = 'transcription' | 'analysis' | 'cleanup' | 'editor' | 'renderer';
+export type PipelineStage = 'transcription' | 'analysis' | 'cleanup' | 'editor' | 'renderer' | 'feedback';
 export type PipelineEventType = 'stage_start' | 'stage_complete' | 'stage_error' | 'pipeline_complete';
 
 export interface PipelineEvent {
@@ -92,8 +128,8 @@ export type JobStatus = 'pending' | 'running' | 'complete' | 'failed';
 export interface JobState {
   id: string;
   status: JobStatus;
-  audioPath: string;
-  chordsXml?: string;
+  midiPath: string;
+  chords: ChordEvent[];
   result?: RendererResult;
   error?: string;
   createdAt: Date;
