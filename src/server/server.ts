@@ -33,15 +33,6 @@ const app = express();
 const upload = multer({
   dest: "tmp/uploads/",
   limits: { fileSize: 100 * 1024 * 1024 },
-  fileFilter: (_req, file, cb) => {
-    if (file.fieldname === 'midi') {
-      cb(null, true);
-    } else if (file.fieldname === 'audio') {
-      cb(null, /wav|m4a|audio/.test(file.mimetype));
-    } else {
-      cb(null, true);
-    }
-  },
 });
 const store = new JobStore();
 
