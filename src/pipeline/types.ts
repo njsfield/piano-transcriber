@@ -25,6 +25,8 @@ export interface MusicFeatures {
   timeSignature: string;
 }
 
+export type GradeValue = 'A+' | 'A' | 'A-' | 'B+' | 'B' | 'B-' | 'C+' | 'C' | 'C-' | 'D' | 'F' | 'n/a';
+
 export type IssueType = 'short_note' | 'rhythmic_outlier';
 export type IssueSeverity = 'low' | 'medium' | 'high';
 
@@ -81,7 +83,7 @@ export interface HandSeparation {
 
 export interface CriterionResult {
   count: number;
-  grade: string;       // 'A+' | 'A' | 'A-' | 'B+' ... 'F' | 'n/a'
+  grade: GradeValue;
   examples: string[];  // e.g. ["m7: G#→B→D over E7 (up)"]
   note?: string;       // caveats, e.g. "grace notes unreliable"
 }
@@ -103,8 +105,8 @@ export interface FeedbackResult {
   interPhraseRest: CriterionResult;
   pitchRange: CriterionResult;
   rhythmicUnits: CriterionResult;
-  overallGrade: string;
-  overallNote: string;
+  overallGrade: GradeValue;
+  overallNote?: string;
 }
 
 export interface RendererResult {
