@@ -2,45 +2,40 @@
 import { mkdir } from 'fs/promises';
 import type { AgentResponse } from '../types';
 import type {
-  AudioInput,
+  PipelineInput,
   TranscriptionResult,
   AnalysisResult,
   CleanupResult,
   EditorResult,
   RendererResult,
+  FeedbackResult,
   PipelineEvent,
   PipelineStage,
   ChordEvent,
 } from './types';
-import { createTranscriptionAgent } from '../agents/transcription-agent';
 import { createAnalysisAgent } from '../agents/analysis-agent';
 import { createCleanupAgent } from '../agents/cleanup-agent';
 import { createEditorAgent } from '../agents/editor-agent';
 import { createRendererAgent } from '../agents/renderer-agent';
-import { parseChordsXml } from '../tools/parse-chords';
-import { injectHarmonies } from '../tools/inject-harmonies';
+import { createImprovFeedbackAgent } from '../agents/improv-feedback-agent';
+import { parseMidi } from '../tools/parse-midi';
 import { classifyHands } from '../tools/classify-hands';
 import type { HandSeparation } from './types';
 
 export interface PipelineConfig {
-  pythonServiceUrl: string;
   jobOutputDir: string;
 }
 
 function parseOutput<T>(response: AgentResponse): T {
   const strip = (s: string) => s.replace(/^```(?:json)?\s*/m, '').replace(/\s*```$/m, '').trim();
 
-  // Try the final assistant message first (used by reasoning agents like CleanupAgent)
   const lastAssistant = [...response.messages].reverse().find(m => m.role === 'assistant');
   if (lastAssistant?.content) {
     try { return JSON.parse(strip(lastAssistant.content)) as T; } catch {}
   }
 
-  // Fall back to the last tool message — used by passthrough agents (Transcription,
-  // Editor, Renderer) whose instructions say DONE instead of re-echoing large JSON.
   const lastTool = [...response.messages].reverse().find(m => m.role === 'tool');
   if (lastTool?.content) {
-    // Surface tool errors directly rather than masking them as a JSON parse failure.
     if ('success' in lastTool && lastTool.success === false) {
       throw new Error(lastTool.content);
     }
@@ -51,25 +46,21 @@ function parseOutput<T>(response: AgentResponse): T {
 }
 
 export async function runPipeline(
-  input: AudioInput,
+  input: PipelineInput,
   config: PipelineConfig,
   emit: (event: PipelineEvent) => void,
 ): Promise<RendererResult> {
-  const { pythonServiceUrl, jobOutputDir } = config;
+  const { jobOutputDir } = config;
   await mkdir(jobOutputDir, { recursive: true });
 
-  const chords: ChordEvent[] = input.chordsXml ? parseChordsXml(input.chordsXml) : [];
+  const chords: ChordEvent[] = input.chords;
 
   const go = (stage: PipelineStage) => emit({ type: 'stage_start', stage });
   const done = (stage: PipelineStage) => emit({ type: 'stage_complete', stage });
 
-  // Stage 1: Transcription
+  // Stage 1: Transcription — parse MIDI binary directly, no agent
   go('transcription');
-  const transcriptionAgent = createTranscriptionAgent(pythonServiceUrl);
-  const transcriptionResponse = await transcriptionAgent.run(
-    `Transcribe the audio file at path: ${input.audioPath}. Use the transcribe_audio tool, then return the result as JSON.`,
-  );
-  const transcription = parseOutput<TranscriptionResult>(transcriptionResponse);
+  const transcription = await parseMidi(input.midiPath);
   done('transcription');
 
   // Stage 2: Analysis
@@ -84,7 +75,6 @@ export async function runPipeline(
   const analysis = parseOutput<AnalysisResult>(analysisResponse);
   done('analysis');
 
-  // Classify notes as left hand (shell voicings) or right hand (solo).
   const beatsPerMeasure = parseInt(analysis.features.timeSignature.split('/')[0] ?? '4', 10);
   const hands = classifyHands(
     transcription.midi,
@@ -130,16 +120,13 @@ export async function runPipeline(
 
   // Stage 5: Renderer
   go('renderer');
-  const outputDir = jobOutputDir;
-
-  // Re-apply the LH/RH split to the edited note list (editor may have deleted some notes).
   const lhIds = new Set(hands.leftHand.map(n => n.id));
   const handsAfterEdit: HandSeparation = {
     leftHand: editor.midi.filter(n => lhIds.has(n.id)),
     rightHand: editor.midi.filter(n => !lhIds.has(n.id)),
   };
 
-  const rendererAgent = createRendererAgent(handsAfterEdit, outputDir);
+  const rendererAgent = createRendererAgent(handsAfterEdit, jobOutputDir);
   const rendererResponse = await rendererAgent.run(
     `Render the MIDI events to MusicXML and PDF. Use the render_midi tool and return the file paths as JSON.`,
   );
@@ -147,23 +134,37 @@ export async function runPipeline(
   done('renderer');
 
   if (chords.length > 0) {
-    // Offset chord measure numbers to account for silence before the first note.
-    // The rendered score's measure 1 is the start of the audio; the iReal chart's
-    // measure 1 is the first musical bar. If there are N measures of silence first,
-    // iReal measure M maps to rendered measure M + N.
+    const { injectHarmonies } = await import('../tools/inject-harmonies');
     const firstNoteMs = transcription.midi.length > 0
       ? Math.min(...transcription.midi.map(n => n.startMs))
       : 0;
     const tempo = analysis.features.temposBpm[0] ?? 120;
     const msPerMeasure = (60000 / tempo) * beatsPerMeasure;
     const measureOffset = Math.floor(firstNoteMs / msPerMeasure);
-
     const shiftedChords = measureOffset > 0
       ? chords.map(c => ({ ...c, measure: c.measure + measureOffset }))
       : chords;
-
     await injectHarmonies(renderer.musicxmlPath, shiftedChords, analysis.features.temposBpm);
   }
 
-  return renderer;
+  // Stage 6: Feedback (non-fatal — if it fails, pipeline still succeeds)
+  go('feedback');
+  let feedbackResult: FeedbackResult | undefined;
+  try {
+    const feedbackAgent = createImprovFeedbackAgent(
+      renderer.musicxmlPath,
+      handsAfterEdit.rightHand,
+      chords,
+      analysis.features,
+    );
+    const feedbackResponse = await feedbackAgent.run(
+      'Analyse this jazz piano improvisation and return the FeedbackResult JSON.',
+    );
+    feedbackResult = parseOutput<FeedbackResult>(feedbackResponse);
+  } catch {
+    // Feedback failure is non-fatal; feedbackResult stays undefined
+  }
+  done('feedback');
+
+  return { ...renderer, feedbackResult };
 }
