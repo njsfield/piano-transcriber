@@ -1,4 +1,4 @@
-import type { JobState, PipelineEvent, RendererResult } from '../pipeline/types';
+import type { JobState, PipelineEvent, RendererResult, ChordEvent } from '../pipeline/types';
 
 type Subscriber = (event: PipelineEvent) => void;
 
@@ -6,12 +6,12 @@ export class JobStore {
   private jobs = new Map<string, JobState>();
   private subscribers = new Map<string, Set<Subscriber>>();
 
-  create(id: string, input: { audioPath: string; chordsXml?: string }): JobState {
+  create(id: string, input: { midiPath: string; chords: ChordEvent[] }): JobState {
     const job: JobState = {
       id,
       status: 'pending',
-      audioPath: input.audioPath,
-      chordsXml: input.chordsXml,
+      midiPath: input.midiPath,
+      chords: input.chords,
       createdAt: new Date(),
       events: [],
     };

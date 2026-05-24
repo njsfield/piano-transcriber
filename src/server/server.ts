@@ -4,9 +4,9 @@ import express from "express";
 import multer from "multer";
 import { randomUUID } from "node:crypto";
 import path from "path";
-import { readFileSync } from "fs";
 import { JobStore } from "./job-store";
 import { runPipeline } from "../pipeline/run-pipeline";
+import type { ChordEvent } from "../pipeline/types";
 
 config({ path: path.join(__dirname, "../../.env") });
 
@@ -22,13 +22,10 @@ const C = {
 };
 
 if (process.env["OPENAI_API_KEY"] === undefined) {
-  console.warn(
-    "Warning: OPENAI_API_KEY is not set. The pipeline will not work without it.",
-  );
+  console.warn("Warning: OPENAI_API_KEY is not set. The pipeline will not work without it.");
   process.exit(1);
 }
 
-const PYTHON_URL = process.env["PYTHON_SERVICE_URL"] ?? "http://localhost:8000";
 const PORT = parseInt(process.env["PORT"] ?? "3001", 10);
 const JOBS_DIR = path.resolve("tmp/jobs");
 
@@ -37,10 +34,12 @@ const upload = multer({
   dest: "tmp/uploads/",
   limits: { fileSize: 100 * 1024 * 1024 },
   fileFilter: (_req, file, cb) => {
-    if (file.fieldname === 'chordsXml') {
+    if (file.fieldname === 'midi') {
       cb(null, true);
-    } else {
+    } else if (file.fieldname === 'audio') {
       cb(null, /wav|m4a|audio/.test(file.mimetype));
+    } else {
+      cb(null, true);
     }
   },
 });
@@ -57,75 +56,81 @@ app.use((req, _res, next) => {
   next();
 });
 
-app.post("/api/jobs", upload.fields([{ name: "audio", maxCount: 1 }, { name: "chordsXml", maxCount: 1 }]), (req, res) => {
-  const files = req.files as Record<string, Express.Multer.File[]> | undefined;
-  const audioFile = files?.["audio"]?.[0];
-  const chordsFile = files?.["chordsXml"]?.[0];
+app.post(
+  "/api/jobs",
+  upload.fields([
+    { name: "midi", maxCount: 1 },
+    { name: "audio", maxCount: 1 },
+  ]),
+  (req, res) => {
+    const files = req.files as Record<string, Express.Multer.File[]> | undefined;
+    const midiFile = files?.["midi"]?.[0];
+    const audioFile = files?.["audio"]?.[0];
 
-  if (!audioFile) {
-    res.status(400).json({ error: "audio file required" });
-    return;
-  }
-
-  let chordsXml: string | undefined;
-  if (chordsFile) {
-    let rawXml: string;
-    try {
-      rawXml = readFileSync(chordsFile.path, "utf-8");
-    } catch {
-      res.status(400).json({ error: "Failed to read chord chart file" });
+    if (!midiFile && audioFile) {
+      res.status(400).json({ error: "Audio upload is no longer supported. Use MIDI recording." });
       return;
     }
-    if (!rawXml.includes("<harmony")) {
-      res.status(400).json({ error: "chordsXml file contains no chord symbols. Upload an iReal Pro MusicXML export." });
+    if (!midiFile) {
+      res.status(400).json({ error: "midi file required" });
       return;
     }
-    chordsXml = rawXml;
-  }
 
-  const jobId = randomUUID();
-  const audioPath = path.resolve(audioFile.path);
-  const jobOutputDir = path.join(JOBS_DIR, jobId);
-
-  store.create(jobId, { audioPath, chordsXml });
-  console.log(`${C.bold}${C.cyan}[job:${jobId}]${C.reset} created file=${audioFile.originalname}`);
-
-  const stageStart: Record<string, number> = {};
-
-  runPipeline(
-    { audioPath, chordsXml },
-    { pythonServiceUrl: PYTHON_URL, jobOutputDir },
-    (event) => {
-      store.addEvent(jobId, event);
-      if (event.type === "stage_start" && event.stage) {
-        stageStart[event.stage] = Date.now();
-        console.log(`${C.bold}${C.cyan}[job:${jobId}]${C.reset} ${C.yellow}▶ ${event.stage}${C.reset}`);
-      } else if (event.type === "stage_complete" && event.stage) {
-        const elapsed = ((Date.now() - (stageStart[event.stage] ?? Date.now())) / 1000).toFixed(2);
-        console.log(`${C.bold}${C.cyan}[job:${jobId}]${C.reset} ${C.green}✓ ${event.stage}${C.reset}${C.dim} (${elapsed}s)${C.reset}`);
-      } else if (event.type === "stage_error") {
-        console.error(`${C.bold}${C.cyan}[job:${jobId}]${C.reset} ${C.red}✗ stage_error: ${event.error}${C.reset}`);
+    let chords: ChordEvent[] = [];
+    const rawChords = req.body?.chordsJson as string | undefined;
+    if (rawChords) {
+      try {
+        chords = JSON.parse(rawChords) as ChordEvent[];
+      } catch {
+        res.status(400).json({ error: "chordsJson must be a JSON-encoded ChordEvent array" });
+        return;
       }
-    },
-  )
-    .then((result) => {
-      // Convert absolute paths to URL paths served by the /tmp static route
-      const toUrl = (p: string) =>
-        "/" + path.relative(process.cwd(), p).replace(/\\/g, "/");
-      store.complete(jobId, {
-        musicxmlPath: toUrl(result.musicxmlPath),
-        pdfPath: toUrl(result.pdfPath),
-      });
-      console.log(`${C.bold}${C.cyan}[job:${jobId}]${C.reset} ${C.green}${C.bold}complete${C.reset}`);
-    })
-    .catch((err: unknown) => {
-      const message = err instanceof Error ? err.message : String(err);
-      store.fail(jobId, message);
-      console.error(`${C.bold}${C.cyan}[job:${jobId}]${C.reset} ${C.red}${C.bold}failed:${C.reset}${C.red} ${message}${C.reset}`);
-    });
+    }
 
-  res.json({ jobId });
-});
+    const jobId = randomUUID();
+    const midiPath = path.resolve(midiFile.path);
+    const jobOutputDir = path.join(JOBS_DIR, jobId);
+
+    store.create(jobId, { midiPath, chords });
+    console.log(`${C.bold}${C.cyan}[job:${jobId}]${C.reset} created file=${midiFile.originalname}`);
+
+    const stageStart: Record<string, number> = {};
+
+    runPipeline(
+      { midiPath, chords } as never,
+      { jobOutputDir } as never,
+      (event) => {
+        store.addEvent(jobId, event);
+        if (event.type === "stage_start" && event.stage) {
+          stageStart[event.stage] = Date.now();
+          console.log(`${C.bold}${C.cyan}[job:${jobId}]${C.reset} ${C.yellow}▶ ${event.stage}${C.reset}`);
+        } else if (event.type === "stage_complete" && event.stage) {
+          const elapsed = ((Date.now() - (stageStart[event.stage] ?? Date.now())) / 1000).toFixed(2);
+          console.log(`${C.bold}${C.cyan}[job:${jobId}]${C.reset} ${C.green}✓ ${event.stage}${C.reset}${C.dim} (${elapsed}s)${C.reset}`);
+        } else if (event.type === "stage_error") {
+          console.error(`${C.bold}${C.cyan}[job:${jobId}]${C.reset} ${C.red}✗ stage_error: ${event.error}${C.reset}`);
+        }
+      },
+    )
+      .then((result) => {
+        const toUrl = (p: string) =>
+          "/" + path.relative(process.cwd(), p).replace(/\\/g, "/");
+        store.complete(jobId, {
+          musicxmlPath: toUrl(result.musicxmlPath),
+          pdfPath: toUrl(result.pdfPath),
+          feedbackResult: result.feedbackResult,
+        });
+        console.log(`${C.bold}${C.cyan}[job:${jobId}]${C.reset} ${C.green}${C.bold}complete${C.reset}`);
+      })
+      .catch((err: unknown) => {
+        const message = err instanceof Error ? err.message : String(err);
+        store.fail(jobId, message);
+        console.error(`${C.bold}${C.cyan}[job:${jobId}]${C.reset} ${C.red}${C.bold}failed:${C.reset}${C.red} ${message}${C.reset}`);
+      });
+
+    res.json({ jobId });
+  },
+);
 
 app.get("/api/jobs/:id/events", (req, res) => {
   const job = store.get(req.params["id"]!);
