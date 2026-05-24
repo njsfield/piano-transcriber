@@ -9,4 +9,4 @@ __pycache__/
 test-input/
 test-output/
 dist/
-docs/
+.superpowers/
