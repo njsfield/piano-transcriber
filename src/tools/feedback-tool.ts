@@ -27,7 +27,6 @@ export interface FeedbackToolOutput {
   tempo: number;
   beatsPerMeasure: number;
   totalMeasures: number;
-  rhNotes: NoteInfo[];
   phrases: PhraseInfo[];
   chordChart: ChordEvent[];
   pitchRange: { lowestMidi: number; highestMidi: number; semitones: number };
@@ -147,7 +146,7 @@ export class FeedbackTool extends BaseTool {
       tempo,
       beatsPerMeasure,
       totalMeasures,
-      rhNotes: noteInfos,
+      // rhNotes omitted — use phrases[].notes for per-note detail to keep prompt size down
       phrases,
       chordChart: this.chords,
       pitchRange: { lowestMidi, highestMidi, semitones: highestMidi - lowestMidi },

@@ -49,7 +49,7 @@ export function createImprovFeedbackAgent(
   features: MusicFeatures,
 ) {
   return new OpenAIAgent('ImprovFeedbackAgent', SYSTEM, {
-    model: 'gpt-4o',
+    model: 'gpt-4o-mini',
     tools: [new FeedbackTool(rhNotes, chords, features)],
     middleware: [new LoggingMiddleware()],
   });
