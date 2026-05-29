@@ -1,0 +1,344 @@
+[
+  {
+    "label": "Pass1: sustained note at pitch 71 is labeled LH",
+    "input_notes": [
+      {
+        "id": "1",
+        "pitch": 73,
+        "startMs": 0,
+        "durationMs": 300,
+        "velocity": 1
+      },
+      { "id": "2", "pitch": 71, "startMs": 0, "durationMs": 500, "velocity": 1 }
+    ],
+    "chords": [{ "measure": 1, "beat_offset": 1, "symbol": "Amaj" }],
+    "tempo": 120,
+    "expected_assignment": { "1": "RH", "2": "LH" },
+    "expected_confidence": { "1": 0.65, "2": 0.95 }
+  },
+  {
+    "label": "Pass2: three notes within 50ms form LH cluster",
+    "input_notes": [
+      {
+        "id": "1",
+        "pitch": 70,
+        "startMs": 47,
+        "durationMs": 100,
+        "velocity": 1
+      },
+      {
+        "id": "2",
+        "pitch": 71,
+        "startMs": 48,
+        "durationMs": 100,
+        "velocity": 1
+      },
+      {
+        "id": "3",
+        "pitch": 69,
+        "startMs": 49,
+        "durationMs": 100,
+        "velocity": 1
+      }
+    ],
+    "chords": [{ "measure": 1, "beat_offset": 1, "symbol": "Amaj" }],
+    "tempo": 120,
+    "expected_assignment": { "1": "LH", "2": "LH", "3": "LH" },
+    "expected_confidence": { "1": 0.9, "2": 0.9, "3": 0.9 }
+  },
+  {
+    "label": "Pass1: short (200ms) note at pitch 76 (>=C5) is labeled RH",
+    "input_notes": [
+      {
+        "id": "1",
+        "pitch": 76,
+        "startMs": 0,
+        "durationMs": 200,
+        "velocity": 80
+      }
+    ],
+    "chords": [],
+    "tempo": 120,
+    "expected_assignment": { "1": "RH" },
+    "expected_confidence": { "1": 0.95 }
+  },
+  {
+    "label": "Pass1: sustained note above pitch 72 is not caught by sustain rule, falls to Pass5 as RH",
+    "input_notes": [
+      {
+        "id": "1",
+        "pitch": 73,
+        "startMs": 0,
+        "durationMs": 600,
+        "velocity": 80
+      }
+    ],
+    "chords": [],
+    "tempo": 120,
+    "expected_assignment": { "1": "RH" },
+    "expected_confidence": { "1": 0.65 }
+  },
+  {
+    "label": "Pass2: only two notes within 50ms does not form a cluster, both fall to Pass5",
+    "input_notes": [
+      {
+        "id": "1",
+        "pitch": 60,
+        "startMs": 0,
+        "durationMs": 200,
+        "velocity": 80
+      },
+      {
+        "id": "2",
+        "pitch": 64,
+        "startMs": 20,
+        "durationMs": 200,
+        "velocity": 80
+      }
+    ],
+    "chords": [],
+    "tempo": 120,
+    "expected_assignment": { "1": "RH", "2": "RH" },
+    "expected_confidence": { "1": 0.65, "2": 0.65 }
+  },
+  {
+    "label": "Pass3: cluster matching active chord is chord-verified LH with confidence 0.95",
+    "input_notes": [
+      {
+        "id": "1",
+        "pitch": 60,
+        "startMs": 0,
+        "durationMs": 400,
+        "velocity": 80
+      },
+      {
+        "id": "2",
+        "pitch": 64,
+        "startMs": 20,
+        "durationMs": 400,
+        "velocity": 80
+      },
+      {
+        "id": "3",
+        "pitch": 67,
+        "startMs": 40,
+        "durationMs": 400,
+        "velocity": 80
+      }
+    ],
+    "chords": [{ "measure": 1, "beat_offset": 1, "symbol": "Cmaj" }],
+    "tempo": 120,
+    "expected_assignment": { "1": "LH", "2": "LH", "3": "LH" },
+    "expected_confidence": { "1": 0.95, "2": 0.95, "3": 0.95 }
+  },
+  {
+    "label": "Pass3: cluster NOT matching active chord is re-opened and resolved by Pass5 as RH",
+    "input_notes": [
+      {
+        "id": "1",
+        "pitch": 61,
+        "startMs": 0,
+        "durationMs": 400,
+        "velocity": 80
+      },
+      {
+        "id": "2",
+        "pitch": 63,
+        "startMs": 20,
+        "durationMs": 400,
+        "velocity": 80
+      },
+      {
+        "id": "3",
+        "pitch": 66,
+        "startMs": 40,
+        "durationMs": 400,
+        "velocity": 80
+      }
+    ],
+    "chords": [{ "measure": 1, "beat_offset": 1, "symbol": "G7" }],
+    "tempo": 120,
+    "expected_assignment": { "1": "RH", "2": "RH", "3": "RH" },
+    "expected_confidence": { "1": 0.65, "2": 0.65, "3": 0.65 }
+  },
+  {
+    "label": "Pass4: unlabeled note more than 4 semitones above active LH cluster top is labeled RH",
+    "input_notes": [
+      {
+        "id": "1",
+        "pitch": 60,
+        "startMs": 0,
+        "durationMs": 400,
+        "velocity": 80
+      },
+      {
+        "id": "2",
+        "pitch": 64,
+        "startMs": 20,
+        "durationMs": 400,
+        "velocity": 80
+      },
+      {
+        "id": "3",
+        "pitch": 67,
+        "startMs": 40,
+        "durationMs": 400,
+        "velocity": 80
+      },
+      {
+        "id": "4",
+        "pitch": 72,
+        "startMs": 200,
+        "durationMs": 400,
+        "velocity": 90
+      }
+    ],
+    "chords": [],
+    "tempo": 120,
+    "expected_assignment": { "1": "LH", "2": "LH", "3": "LH", "4": "RH" },
+    "expected_confidence": { "1": 0.9, "2": 0.9, "3": 0.9, "4": 0.8 }
+  },
+  {
+    "label": "Pass4: unlabeled sustained note at or below LH cluster top is labeled LH",
+    "input_notes": [
+      {
+        "id": "1",
+        "pitch": 60,
+        "startMs": 0,
+        "durationMs": 400,
+        "velocity": 80
+      },
+      {
+        "id": "2",
+        "pitch": 64,
+        "startMs": 20,
+        "durationMs": 400,
+        "velocity": 80
+      },
+      {
+        "id": "3",
+        "pitch": 67,
+        "startMs": 40,
+        "durationMs": 400,
+        "velocity": 80
+      },
+      {
+        "id": "4",
+        "pitch": 66,
+        "startMs": 200,
+        "durationMs": 400,
+        "velocity": 70
+      }
+    ],
+    "chords": [],
+    "tempo": 120,
+    "expected_assignment": { "1": "LH", "2": "LH", "3": "LH", "4": "LH" },
+    "expected_confidence": { "1": 0.9, "2": 0.9, "3": 0.9, "4": 0.8 }
+  },
+  {
+    "label": "Pass5: isolated note below ISOLATED_RH_FLOOR (pitch 54) falls back to LH",
+    "input_notes": [
+      {
+        "id": "1",
+        "pitch": 54,
+        "startMs": 0,
+        "durationMs": 100,
+        "velocity": 80
+      }
+    ],
+    "chords": [],
+    "tempo": 120,
+    "expected_assignment": { "1": "LH" },
+    "expected_confidence": { "1": 0.65 }
+  },
+  {
+    "label": "Pass5: isolated note at ISOLATED_RH_FLOOR (pitch 55) falls back to RH",
+    "input_notes": [
+      {
+        "id": "1",
+        "pitch": 55,
+        "startMs": 0,
+        "durationMs": 100,
+        "velocity": 80
+      }
+    ],
+    "chords": [],
+    "tempo": 120,
+    "expected_assignment": { "1": "RH" },
+    "expected_confidence": { "1": 0.65 }
+  },
+  {
+    "label": "Pass6: simultaneous LH notes spanning >14 semitones causes outlier to be reassigned RH",
+    "input_notes": [
+      {
+        "id": "1",
+        "pitch": 40,
+        "startMs": 0,
+        "durationMs": 800,
+        "velocity": 80
+      },
+      {
+        "id": "2",
+        "pitch": 44,
+        "startMs": 10,
+        "durationMs": 800,
+        "velocity": 80
+      },
+      {
+        "id": "3",
+        "pitch": 48,
+        "startMs": 20,
+        "durationMs": 800,
+        "velocity": 80
+      },
+      {
+        "id": "4",
+        "pitch": 62,
+        "startMs": 30,
+        "durationMs": 800,
+        "velocity": 80
+      }
+    ],
+    "chords": [],
+    "tempo": 120,
+    "expected_assignment": { "1": "LH", "2": "LH", "3": "LH", "4": "RH" },
+    "expected_confidence": { "1": 0.95, "2": 0.95, "3": 0.95, "4": 0.5 }
+  },
+  {
+    "label": "Pass6: fast LH leap >24 semitones in <100ms causes second note to be reassigned RH",
+    "input_notes": [
+      {
+        "id": "1",
+        "pitch": 60,
+        "startMs": 0,
+        "durationMs": 600,
+        "velocity": 80
+      },
+      {
+        "id": "2",
+        "pitch": 64,
+        "startMs": 10,
+        "durationMs": 600,
+        "velocity": 80
+      },
+      {
+        "id": "3",
+        "pitch": 68,
+        "startMs": 20,
+        "durationMs": 600,
+        "velocity": 80
+      },
+      {
+        "id": "4",
+        "pitch": 43,
+        "startMs": 80,
+        "durationMs": 600,
+        "velocity": 80
+      }
+    ],
+    "chords": [],
+    "tempo": 120,
+    "expected_assignment": { "1": "LH", "2": "LH", "3": "LH", "4": "RH" },
+    "expected_confidence": { "1": 0.95, "2": 0.95, "3": 0.95, "4": 0.5 }
+  }
+]
